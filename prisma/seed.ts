@@ -1,66 +1,118 @@
-import { PrismaClient, Role, DeviceStatus } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { PrismaClient, Role, DeviceStatus } from "@prisma/client";
+import * as bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
+const USERS = [
+  {
+    id: "cmi3ipagh0000fbzo8kwyk3in",
+    username: "developer",
+    email: "dev99@b3sahabat.cloud",
+    role: Role.ADMIN,
+    createdAt: "2025-11-17T19:08:23.729Z",
+    updatedAt: "2025-12-06T15:39:42.672Z",
+  },
+  {
+    id: "cmic0bb4q001cfbywpe4dp4mp",
+    username: "administrator",
+    email: "admin@b3sahabat.cloud",
+    role: Role.ADMIN,
+    createdAt: "2025-11-23T17:43:33.845Z",
+    updatedAt: "2025-12-06T00:46:49.457Z",
+  },
+  {
+    id: "cmitlvrzv0000fb6kj4z4gez5",
+    username: "devops",
+    email: "devops@b3sahabat.cloud",
+    role: Role.ADMIN,
+    createdAt: "2025-12-06T01:19:25.818Z",
+    updatedAt: "2025-12-06T01:20:15.301Z",
+  },
+];
+
+const DEVICES = [
+  {
+    id: "cmi3ipai70002fbzohd5ktedt",
+    serialNumber: "841FE826AE0C",
+    name: "PJU X",
+    description: "Gateway",
+    location:
+      "P57F+J37, Cikarang, Simpangan, Kec. Cikarang Utara, Kabupaten Bekasi, Jawa Barat 17530",
+    status: DeviceStatus.ONLINE,
+    lastSeenAt: "2025-12-06T18:35:30.006Z",
+    createdAt: "2025-11-17T19:08:23.792Z",
+    updatedAt: "2025-12-06T18:35:30.008Z",
+    latitude: -6.285955998382478,
+    longitude: 107.1726698519202,
+  },
+];
+
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log("🌱 Seeding database...");
 
-  // --- Create Admin Users ---
-  const adminUsers = [
-    {
-      username: 'admin',
-      email: 'puremachine99@gmail.com',
-      password: 'nopel123',
-    },
-    {
-      username: 'admin2',
-      email: 'mynameisnoz@gmail.com',
-      password: 'nozforever',
-    },
-  ];
+  const defaultPasswordHash = await bcrypt.hash("12345678", 10);
 
-  for (const admin of adminUsers) {
-    const hashed = await bcrypt.hash(admin.password, 10);
+  for (const user of USERS) {
     const record = await prisma.user.upsert({
-      where: { email: admin.email },
+      where: { id: user.id },
       update: {
-        password: hashed,
-        username: admin.username,
-        role: Role.ADMIN,
+        username: user.username,
+        email: user.email,
+        password: defaultPasswordHash,
+        role: user.role,
+        createdAt: new Date(user.createdAt),
+        updatedAt: new Date(user.updatedAt),
       },
       create: {
-        username: admin.username,
-        email: admin.email,
-        password: hashed,
-        role: Role.ADMIN,
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        password: defaultPasswordHash,
+        role: user.role,
+        createdAt: new Date(user.createdAt),
+        updatedAt: new Date(user.updatedAt),
       },
     });
-    console.log(`✅ Admin created: ${record.email}`);
+    console.log(`✅ User seeded: ${record.email}`);
   }
 
-  // --- Create Device (standalone) ---
-  const device = await prisma.device.upsert({
-    where: { serialNumber: '841FE826AE0C' },
-    update: {},
-    create: {
-      serialNumber: '841FE826AE0C',
-      name: 'PJU 1',
-      description: 'Lampu Punk',
-      location: 'P57F+J37, Cikarang, Simpangan, Kec. Cikarang Utara, Kabupaten Bekasi, Jawa Barat 17530',
-      latitude: -6.2859910037091415,
-      longitude: 107.17263759257047,
-      status: DeviceStatus.OFFLINE,
-    },
-  });
-  console.log(`✅ Device created: ${device.serialNumber}`);
+  for (const device of DEVICES) {
+    const record = await prisma.device.upsert({
+      where: { serialNumber: device.serialNumber },
+      update: {
+        name: device.name,
+        description: device.description,
+        location: device.location,
+        latitude: device.latitude,
+        longitude: device.longitude,
+        status: device.status,
+        lastSeenAt: new Date(device.lastSeenAt),
+        createdAt: new Date(device.createdAt),
+        updatedAt: new Date(device.updatedAt),
+      },
+      create: {
+        id: device.id,
+        serialNumber: device.serialNumber,
+        name: device.name,
+        description: device.description,
+        location: device.location,
+        latitude: device.latitude,
+        longitude: device.longitude,
+        status: device.status,
+        lastSeenAt: new Date(device.lastSeenAt),
+        createdAt: new Date(device.createdAt),
+        updatedAt: new Date(device.updatedAt),
+      },
+    });
+    console.log(`✅ Device seeded: ${record.serialNumber}`);
+  }
 
-  console.log('🌱 Seed finished successfully.');
+  console.log("🌱 Seed finished successfully.");
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e);
+    console.error("❌ Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {
