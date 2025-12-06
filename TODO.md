@@ -9,7 +9,7 @@
 - [x] Define Prisma schema (User, Device, DeviceLog, Group, Membership, DeviceCommand)
 
 ## MODULES
-
+## hello
 ### mqtt (internal)
 - [x] Create mqtt.module.ts
 - [x] Implement mqtt.service.ts (connect, publish, subscribe)
