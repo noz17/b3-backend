@@ -21,7 +21,7 @@ export class MqttService {
     this.connect();
   }
 
-  // Build a human-readable summary for websocket consumers; keeps raw payload as-is
+  // Build readable text for frontend
   private buildReadableLog(type: string, message: string, payload: any) {
     const makeDetailString = (data: Record<string, any>) =>
       Object.entries(data)
@@ -31,6 +31,7 @@ export class MqttService {
 
     if (type === 'STATUS' && payload && typeof payload === 'object') {
       const relay = payload.relay_state ?? payload.relay ?? payload.relayState;
+
       const detail = makeDetailString({
         last_seen: payload.last_seen ?? payload.lastSeen,
         relay_state: relay,
@@ -38,13 +39,9 @@ export class MqttService {
         device_connection:
           payload.device_connection ?? payload.connection ?? payload.status,
       });
-      const summaryParts = [
-        'STATUS',
-        message,
-        relay ? `relay=${relay}` : undefined,
-      ].filter(Boolean);
+
       return {
-        displaySummary: summaryParts.join(' · '),
+        displaySummary: `STATUS · ${message} · ${relay ? `relay=${relay}` : ''}`,
         displayDetail: detail,
       };
     }
@@ -69,7 +66,6 @@ export class MqttService {
     const rawUrl = this.config.get<string>('MQTT_URL');
     if (!rawUrl) throw new Error('MQTT_URL not set in environment');
 
-    // Allow host:port input; prepend mqtt:// when missing a protocol
     const mqttUrl =
       rawUrl.startsWith('mqtt://') ||
       rawUrl.startsWith('ws://') ||
@@ -101,14 +97,19 @@ export class MqttService {
       this.logger.error(`MQTT error: ${err.message}`);
     });
 
+    // ============================
+    //    MAIN MESSAGE HANDLER
+    // ============================
     this.client.on('message', async (topic, payload) => {
-      const parts = topic.split('/');
-      const deviceId = parts[1];
-      const event = parts[2];
+      const [_, deviceId, event] = topic.split('/');
 
+      // ========================
+      //        STATUS
+      // ========================
       if (event === 'status') {
         const raw = payload.toString();
         let parsed: any = raw;
+
         try {
           parsed = JSON.parse(raw);
         } catch {
@@ -117,15 +118,17 @@ export class MqttService {
           );
         }
 
-        // Broadcast realtime (even if raw string)
         const statusPayload =
           typeof parsed === 'object' ? parsed : { message: parsed };
+
         const readable = this.buildReadableLog(
           'STATUS',
           'Status update received',
           parsed,
         );
+
         this.realtimeGateway.broadcastDeviceStatus(deviceId, statusPayload);
+
         this.realtimeGateway.broadcastDeviceLog({
           deviceId,
           type: 'STATUS',
@@ -135,59 +138,101 @@ export class MqttService {
           createdAt: new Date().toISOString(),
         });
 
-        // Persist to DB with raw/parsed payload
         await this.deviceLogs.createLog({
           deviceSerial: deviceId,
           eventType: LogType.STATUS,
           command: 'Status update received',
           payload: parsed,
         });
-      } else if (event === 'lwt') {
+        return;
+      }
+
+      // ========================
+      //          LWT
+      // ========================
+      if (event === 'lwt') {
         const status = payload.toString().trim();
+        const normalized =
+          status.toUpperCase() === 'ONLINE'
+            ? DeviceStatus.ONLINE
+            : DeviceStatus.OFFLINE;
+
+        const now = new Date();
+
         this.logger.log(`LWT received for device ${deviceId}: ${status}`);
-        // Broadcast LWT to websocket so frontend can show real-time connection status
+
+        // --- Broadcast realtime updates ---
         this.realtimeGateway.broadcastDeviceConnection(deviceId, status);
         this.realtimeGateway.broadcastDeviceAvailability(
           deviceId,
-          status.toUpperCase() !== 'OFFLINE',
+          normalized === DeviceStatus.ONLINE,
         );
         this.realtimeGateway.broadcastDeviceStatus(deviceId, { status });
+
         const readable = this.buildReadableLog(
           'LWT',
           `Device connection ${status}`,
           status,
         );
+
         this.realtimeGateway.broadcastDeviceLog({
           deviceId,
           type: 'LWT',
           message: readable.displaySummary,
           payload: status,
           display: readable,
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
         });
+
+        // --- Save log ---
         await this.deviceLogs.createLog({
           deviceSerial: deviceId,
           eventType:
-            status.toUpperCase() === 'OFFLINE' ? LogType.ERROR : LogType.SYSTEM,
+            normalized === DeviceStatus.ONLINE
+              ? LogType.SYSTEM
+              : LogType.ERROR,
           command: 'LWT',
           payload: status,
         });
 
-        // Update device status in DB so REST consumers stay in sync
-        const normalized =
-          status.toUpperCase() === 'ONLINE'
-            ? DeviceStatus.ONLINE
-            : DeviceStatus.OFFLINE;
-        await this.prisma.device.upsert({
-          where: { serialNumber: deviceId },
-          update: { status: normalized, lastSeenAt: new Date() },
-          create: {
-            serialNumber: deviceId,
-            name: deviceId,
-            status: normalized,
-            lastSeenAt: new Date(),
-          },
-        });
+        // ==========================================
+        //   SAFE DEVICE UPDATE (NO MORE P2002 ERROR)
+        // ==========================================
+        try {
+          await this.prisma.device.update({
+            where: { serialNumber: deviceId },
+            data: {
+              status: normalized,
+              lastSeenAt: now,
+            },
+          });
+        } catch (err) {
+          if (err.code === 'P2025') {
+            // Device not found → try create
+            try {
+              await this.prisma.device.create({
+                data: {
+                  serialNumber: deviceId,
+                  name: deviceId,
+                  status: normalized,
+                  lastSeenAt: now,
+                },
+              });
+            } catch (createErr) {
+              // If someone else created at the same time → recover
+              if (createErr.code === 'P2002') {
+                await this.prisma.device.update({
+                  where: { serialNumber: deviceId },
+                  data: { status: normalized, lastSeenAt: now },
+                });
+              } else {
+                throw createErr;
+              }
+            }
+          } else {
+            throw err;
+          }
+        }
       }
     });
   }

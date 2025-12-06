@@ -32,9 +32,21 @@ export class GroupsService {
     return this.prisma.group.update({ where: { id }, data });
   }
 
-  async remove(id: string) {
-    return this.prisma.group.delete({ where: { id } });
-  }
+ // async remove(id: string) {
+ //   return this.prisma.group.delete({ where: { id } });
+//  }
+async remove(id: string) {
+  // 1. Hapus semua membership
+  await this.prisma.deviceGroupMembership.deleteMany({
+    where: { groupId: id },
+  });
+
+  // 2. Baru hapus group
+  return this.prisma.group.delete({
+    where: { id },
+  });
+}
+
 
   /**
    * Attach device using device.id (NOT serialNumber)

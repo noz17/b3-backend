@@ -55,31 +55,20 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
         data.deviceSerial,
       );
 
-      // Ensure provided user exists; otherwise avoid FK violation by omitting it
-      let userId: string | undefined = data.userId;
-      if (userId) {
-        const userExists = await this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { id: true },
-        });
-        if (!userExists) {
-          this.logger.warn(`User ${userId} not found; omitting from log entry`);
-          userId = undefined;
-        }
-      }
-
       const log = await this.prisma.deviceLog.create({
         data: {
           deviceId: resolvedDeviceId,
-          userId,
+          userId: data.userId,
           eventType: data.eventType,
           command: data.command,
           payload: data.payload,
         },
       });
+
       this.logger.log(
-        `🧾 Log saved for ${data.deviceId}: ${data.eventType} (${data.command ?? ''})`,
+        `🧾 Log saved for ${data.deviceSerial ?? data.deviceId}: ${data.eventType}`,
       );
+
       return log;
     } catch (err) {
       this.logger.error('❌ Failed to create log: ' + err.message);
@@ -94,32 +83,33 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
       },
       select: { id: true },
     });
-    if (!device) {
-      return [];
-    }
 
-    const items = await this.prisma.deviceLog.findMany({
+    if (!device) return [];
+
+    return this.prisma.deviceLog.findMany({
       where: { deviceId: device.id },
       orderBy: { createdAt: 'asc' },
     });
-
-    return items;
   }
 
   async cleanupOldLogs(retentionOverride?: number) {
     const retentionDays = retentionOverride ?? this.retentionDays;
-    const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const cutoff = new Date(Date.now() - retentionDays * 86400000);
+
     const result = await this.prisma.deviceLog.deleteMany({
       where: { createdAt: { lt: cutoff } },
     });
+
     if (result.count > 0) {
       this.logger.log(
         `♻️ Cleaned ${result.count} logs older than ${retentionDays} days.`,
       );
     }
+
     return result.count;
   }
 
+  // === FIXED FUNCTION (ANTI-P2002) ===
   private async resolveDeviceId(deviceId?: string, deviceSerial?: string) {
     if (deviceId) {
       const existing = await this.prisma.device.findUnique({
@@ -133,16 +123,33 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
     if (!serialKey)
       throw new Error('deviceSerial or deviceId is required to create log');
 
-    const device = await this.prisma.device.upsert({
+    const existingDevice = await this.prisma.device.findUnique({
       where: { serialNumber: serialKey },
-      update: {},
-      create: {
-        serialNumber: serialKey,
-        name: serialKey,
-        status: DeviceStatus.OFFLINE,
-      },
+      select: { id: true },
     });
 
-    return device.id;
+    if (existingDevice) return existingDevice.id;
+
+    try {
+      const created = await this.prisma.device.create({
+        data: {
+          serialNumber: serialKey,
+          name: serialKey,
+          status: DeviceStatus.OFFLINE,
+        },
+        select: { id: true },
+      });
+
+      return created.id;
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        const retry = await this.prisma.device.findUnique({
+          where: { serialNumber: serialKey },
+          select: { id: true },
+        });
+        if (retry) return retry.id;
+      }
+      throw err;
+    }
   }
 }
