@@ -30,7 +30,13 @@ export class DevicesService {
   async getStatus(identifier: string) {
     const device = await this.prisma.device.findFirst({
       where: { OR: [{ id: identifier }, { serialNumber: identifier }] },
-      select: { id: true, serialNumber: true, status: true, lastSeenAt: true, updatedAt: true },
+      select: {
+        id: true,
+        serialNumber: true,
+        status: true,
+        lastSeenAt: true,
+        updatedAt: true,
+      },
     });
     if (!device) {
       throw new NotFoundException(`Device ${identifier} not found`);
@@ -79,9 +85,7 @@ export class DevicesService {
     await this.mqtt.publishCommand(serialNumber, payload);
 
     const commandLabel =
-      typeof payload === 'string'
-        ? payload
-        : payload?.command ?? 'CUSTOM';
+      typeof payload === 'string' ? payload : (payload?.command ?? 'CUSTOM');
 
     await this.deviceLogs.createLog({
       deviceId: device.id,

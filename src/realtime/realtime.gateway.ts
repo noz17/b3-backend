@@ -12,7 +12,9 @@ import { Server } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({ cors: true })
-export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class RealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -33,7 +35,9 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   broadcastDeviceConnection(deviceId: string, status: string) {
     this.server.to(deviceId).emit('device-connection', { deviceId, status });
-    this.logger.debug(`Broadcasted connection for device ${deviceId}: ${status}`);
+    this.logger.debug(
+      `Broadcasted connection for device ${deviceId}: ${status}`,
+    );
   }
 
   broadcastDeviceLog(log: {
@@ -49,11 +53,15 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     };
   }) {
     this.server.to(log.deviceId).emit('device-log', log);
-    this.logger.debug(`Broadcasted device log for ${log.deviceId}: ${log.type}`);
+    this.logger.debug(
+      `Broadcasted device log for ${log.deviceId}: ${log.type}`,
+    );
   }
 
   broadcastDeviceAvailability(deviceId: string, available: boolean) {
-    this.server.to(deviceId).emit('device-availability', { deviceId, available });
+    this.server
+      .to(deviceId)
+      .emit('device-availability', { deviceId, available });
     this.logger.debug(
       `Broadcasted availability for device ${deviceId}: ${available ? 'AVAILABLE' : 'UNAVAILABLE'}`,
     );

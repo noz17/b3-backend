@@ -35,9 +35,14 @@ export class MqttService {
         last_seen: payload.last_seen ?? payload.lastSeen,
         relay_state: relay,
         serial_number: payload.serial_number ?? payload.serialNumber,
-        device_connection: payload.device_connection ?? payload.connection ?? payload.status,
+        device_connection:
+          payload.device_connection ?? payload.connection ?? payload.status,
       });
-      const summaryParts = ['STATUS', message, relay ? `relay=${relay}` : undefined].filter(Boolean);
+      const summaryParts = [
+        'STATUS',
+        message,
+        relay ? `relay=${relay}` : undefined,
+      ].filter(Boolean);
       return {
         displaySummary: summaryParts.join(' · '),
         displayDetail: detail,
@@ -53,7 +58,10 @@ export class MqttService {
 
     return {
       displaySummary: `${type} · ${message}`,
-      displayDetail: typeof payload === 'object' ? makeDetailString(payload) : String(payload ?? ''),
+      displayDetail:
+        typeof payload === 'object'
+          ? makeDetailString(payload)
+          : String(payload ?? ''),
     };
   }
 
@@ -62,9 +70,12 @@ export class MqttService {
     if (!rawUrl) throw new Error('MQTT_URL not set in environment');
 
     // Allow host:port input; prepend mqtt:// when missing a protocol
-    const mqttUrl = rawUrl.startsWith('mqtt://') || rawUrl.startsWith('ws://') || rawUrl.startsWith('wss://')
-      ? rawUrl
-      : `mqtt://${rawUrl}`;
+    const mqttUrl =
+      rawUrl.startsWith('mqtt://') ||
+      rawUrl.startsWith('ws://') ||
+      rawUrl.startsWith('wss://')
+        ? rawUrl
+        : `mqtt://${rawUrl}`;
 
     this.logger.log(`Connecting to MQTT: ${mqttUrl}`);
     this.client = connect(mqttUrl);
@@ -96,26 +107,33 @@ export class MqttService {
       const event = parts[2];
 
       if (event === 'status') {
-      const raw = payload.toString();
-      let parsed: any = raw;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        this.logger.warn(`Status payload not JSON for ${deviceId}, storing raw text`);
-      }
+        const raw = payload.toString();
+        let parsed: any = raw;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          this.logger.warn(
+            `Status payload not JSON for ${deviceId}, storing raw text`,
+          );
+        }
 
-      // Broadcast realtime (even if raw string)
-      const statusPayload = typeof parsed === 'object' ? parsed : { message: parsed };
-      const readable = this.buildReadableLog('STATUS', 'Status update received', parsed);
-      this.realtimeGateway.broadcastDeviceStatus(deviceId, statusPayload);
-      this.realtimeGateway.broadcastDeviceLog({
-        deviceId,
-        type: 'STATUS',
-        message: readable.displaySummary,
-        payload: parsed,
-        display: readable,
-        createdAt: new Date().toISOString(),
-      });
+        // Broadcast realtime (even if raw string)
+        const statusPayload =
+          typeof parsed === 'object' ? parsed : { message: parsed };
+        const readable = this.buildReadableLog(
+          'STATUS',
+          'Status update received',
+          parsed,
+        );
+        this.realtimeGateway.broadcastDeviceStatus(deviceId, statusPayload);
+        this.realtimeGateway.broadcastDeviceLog({
+          deviceId,
+          type: 'STATUS',
+          message: readable.displaySummary,
+          payload: parsed,
+          display: readable,
+          createdAt: new Date().toISOString(),
+        });
 
         // Persist to DB with raw/parsed payload
         await this.deviceLogs.createLog({
@@ -129,9 +147,16 @@ export class MqttService {
         this.logger.log(`LWT received for device ${deviceId}: ${status}`);
         // Broadcast LWT to websocket so frontend can show real-time connection status
         this.realtimeGateway.broadcastDeviceConnection(deviceId, status);
-        this.realtimeGateway.broadcastDeviceAvailability(deviceId, status.toUpperCase() !== 'OFFLINE');
+        this.realtimeGateway.broadcastDeviceAvailability(
+          deviceId,
+          status.toUpperCase() !== 'OFFLINE',
+        );
         this.realtimeGateway.broadcastDeviceStatus(deviceId, { status });
-        const readable = this.buildReadableLog('LWT', `Device connection ${status}`, status);
+        const readable = this.buildReadableLog(
+          'LWT',
+          `Device connection ${status}`,
+          status,
+        );
         this.realtimeGateway.broadcastDeviceLog({
           deviceId,
           type: 'LWT',
@@ -142,13 +167,17 @@ export class MqttService {
         });
         await this.deviceLogs.createLog({
           deviceSerial: deviceId,
-          eventType: status.toUpperCase() === 'OFFLINE' ? LogType.ERROR : LogType.SYSTEM,
+          eventType:
+            status.toUpperCase() === 'OFFLINE' ? LogType.ERROR : LogType.SYSTEM,
           command: 'LWT',
           payload: status,
         });
 
         // Update device status in DB so REST consumers stay in sync
-        const normalized = status.toUpperCase() === 'ONLINE' ? DeviceStatus.ONLINE : DeviceStatus.OFFLINE;
+        const normalized =
+          status.toUpperCase() === 'ONLINE'
+            ? DeviceStatus.ONLINE
+            : DeviceStatus.OFFLINE;
         await this.prisma.device.upsert({
           where: { serialNumber: deviceId },
           update: { status: normalized, lastSeenAt: new Date() },

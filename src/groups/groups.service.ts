@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -37,8 +41,14 @@ export class GroupsService {
    */
   async addDevice(groupId: string, deviceId: string) {
     const [group, device] = await Promise.all([
-      this.prisma.group.findUnique({ where: { id: groupId }, select: { id: true } }),
-      this.prisma.device.findUnique({ where: { id: deviceId }, select: { id: true } }),
+      this.prisma.group.findUnique({
+        where: { id: groupId },
+        select: { id: true },
+      }),
+      this.prisma.device.findUnique({
+        where: { id: deviceId },
+        select: { id: true },
+      }),
     ]);
 
     if (!group) {
@@ -49,9 +59,10 @@ export class GroupsService {
       throw new NotFoundException(`Device with id ${deviceId} not found`);
     }
 
-    const existingMembership = await this.prisma.deviceGroupMembership.findUnique({
-      where: { deviceId_groupId: { deviceId: device.id, groupId: group.id } },
-    });
+    const existingMembership =
+      await this.prisma.deviceGroupMembership.findUnique({
+        where: { deviceId_groupId: { deviceId: device.id, groupId: group.id } },
+      });
 
     if (existingMembership) {
       throw new ConflictException('Device already attached to this group');
@@ -67,8 +78,14 @@ export class GroupsService {
    */
   async removeDevice(groupId: string, deviceId: string) {
     const [group, device] = await Promise.all([
-      this.prisma.group.findUnique({ where: { id: groupId }, select: { id: true } }),
-      this.prisma.device.findUnique({ where: { id: deviceId }, select: { id: true } }),
+      this.prisma.group.findUnique({
+        where: { id: groupId },
+        select: { id: true },
+      }),
+      this.prisma.device.findUnique({
+        where: { id: deviceId },
+        select: { id: true },
+      }),
     ]);
 
     if (!group) {
@@ -91,7 +108,10 @@ export class GroupsService {
   }
 
   async listDevices(groupId: string) {
-    const group = await this.prisma.group.findUnique({ where: { id: groupId }, select: { id: true } });
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      select: { id: true },
+    });
 
     if (!group) {
       throw new NotFoundException(`Group with id ${groupId} not found`);

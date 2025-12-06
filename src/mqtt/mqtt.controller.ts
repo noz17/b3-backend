@@ -11,7 +11,9 @@ export class MqttController {
   publishCommand(@Body() body: { serialNumber: string; command: any }) {
     const { serialNumber, command } = body;
 
-    this.logger.log(`➡️ Publishing command to device ${serialNumber}: ${command}`);
+    this.logger.log(
+      `➡️ Publishing command to device ${serialNumber}: ${command}`,
+    );
 
     this.mqttService.publishCommand(serialNumber, command);
 

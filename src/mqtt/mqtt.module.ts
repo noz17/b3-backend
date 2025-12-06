@@ -7,14 +7,9 @@ import { DeviceLogsModule } from '../device-logs/device-logs.module';
 import { DatabaseModule } from '../database/database.module';
 
 @Module({
-  imports: [
-    ConfigModule,
-    RealtimeModule,
-    DeviceLogsModule,
-    DatabaseModule,
-  ],
+  imports: [ConfigModule, RealtimeModule, DeviceLogsModule, DatabaseModule],
   providers: [MqttService],
-  controllers: [MqttController],   // <--- WAJIB ADA INI
+  controllers: [MqttController], // <--- WAJIB ADA INI
   exports: [MqttService],
 })
 export class MqttModule {}

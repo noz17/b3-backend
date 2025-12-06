@@ -8,7 +8,13 @@ import { DeviceLogsModule } from '../device-logs/device-logs.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
-  imports: [DatabaseModule, MqttModule, AuthModule, DeviceLogsModule, RealtimeModule], // ✅ wajib
+  imports: [
+    DatabaseModule,
+    MqttModule,
+    AuthModule,
+    DeviceLogsModule,
+    RealtimeModule,
+  ], // ✅ wajib
   controllers: [DevicesController],
   providers: [DevicesService],
   exports: [DevicesService],

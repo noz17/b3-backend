@@ -1,4 +1,10 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { DeviceStatus } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -11,7 +17,10 @@ export class CreateDeviceDto {
   @IsNotEmpty()
   serialNumber: string;
 
-  @ApiProperty({ description: 'Friendly name shown in the UI', example: 'Kebun A Gateway' })
+  @ApiProperty({
+    description: 'Friendly name shown in the UI',
+    example: 'Kebun A Gateway',
+  })
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -26,7 +35,8 @@ export class CreateDeviceDto {
   description?: string;
 
   @ApiProperty({
-    description: 'Free-form location text such as room name or coordinates label',
+    description:
+      'Free-form location text such as room name or coordinates label',
     example: 'Warehouse 3',
     required: false,
   })

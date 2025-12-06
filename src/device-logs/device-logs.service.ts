@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { DeviceStatus, LogType } from '@prisma/client';
@@ -14,7 +19,9 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.retentionDays = Number(this.config.get('DEVICE_LOG_RETENTION_DAYS') ?? 30);
+    this.retentionDays = Number(
+      this.config.get('DEVICE_LOG_RETENTION_DAYS') ?? 30,
+    );
     this.cleanupIntervalHours = Number(
       this.config.get('DEVICE_LOG_CLEANUP_INTERVAL_HOURS') ?? 24,
     );
@@ -23,7 +30,8 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     if (this.cleanupIntervalHours > 0) {
       this.cleanupInterval = setInterval(
-        () => this.cleanupOldLogs().catch((err) => this.logger.error(err.message)),
+        () =>
+          this.cleanupOldLogs().catch((err) => this.logger.error(err.message)),
         this.cleanupIntervalHours * 60 * 60 * 1000,
       );
     }
@@ -42,7 +50,10 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
     userId?: string;
   }) {
     try {
-      const resolvedDeviceId = await this.resolveDeviceId(data.deviceId, data.deviceSerial);
+      const resolvedDeviceId = await this.resolveDeviceId(
+        data.deviceId,
+        data.deviceSerial,
+      );
 
       // Ensure provided user exists; otherwise avoid FK violation by omitting it
       let userId: string | undefined = data.userId;
@@ -102,7 +113,9 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
       where: { createdAt: { lt: cutoff } },
     });
     if (result.count > 0) {
-      this.logger.log(`♻️ Cleaned ${result.count} logs older than ${retentionDays} days.`);
+      this.logger.log(
+        `♻️ Cleaned ${result.count} logs older than ${retentionDays} days.`,
+      );
     }
     return result.count;
   }
@@ -117,7 +130,8 @@ export class DeviceLogsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const serialKey = deviceSerial ?? deviceId;
-    if (!serialKey) throw new Error('deviceSerial or deviceId is required to create log');
+    if (!serialKey)
+      throw new Error('deviceSerial or deviceId is required to create log');
 
     const device = await this.prisma.device.upsert({
       where: { serialNumber: serialKey },

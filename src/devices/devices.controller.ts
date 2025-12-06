@@ -52,7 +52,9 @@ export class DevicesController {
   }
 
   @Get(':id/status')
-  @ApiOperation({ summary: 'Retrieve last known connectivity status of a device' })
+  @ApiOperation({
+    summary: 'Retrieve last known connectivity status of a device',
+  })
   @ApiParam({ name: 'id', description: 'Device identifier from database' })
   @ApiOkResponse({ description: 'Status value based on logs or MQTT presence' })
   findStatus(@Param('id') id: string) {
@@ -76,10 +78,7 @@ export class DevicesController {
   @ApiParam({ name: 'id', description: 'Device identifier from database' })
   @ApiBody({ type: UpdateDeviceDto })
   @ApiOkResponse({ description: 'Updated device payload' })
-  update(
-    @Param('id') id: string,
-    @Body() body: UpdateDeviceDto,
-  ) {
+  update(@Param('id') id: string, @Body() body: UpdateDeviceDto) {
     return this.devicesService.update(id, body);
   }
 
@@ -95,9 +94,13 @@ export class DevicesController {
   @Post(':serialNumber/cmd')
   @Roles(Role.ADMIN, Role.OPERATOR)
   @ApiOperation({ summary: 'Relay a command to a device topic' })
-  @ApiParam({ name: 'serialNumber', description: 'Hardware serial number used as MQTT topic suffix' })
+  @ApiParam({
+    name: 'serialNumber',
+    description: 'Hardware serial number used as MQTT topic suffix',
+  })
   @ApiBody({
-    description: 'Provide either { payload }, { command }, or a raw string body to be sent to MQTT',
+    description:
+      'Provide either { payload }, { command }, or a raw string body to be sent to MQTT',
     schema: {
       oneOf: [
         {
@@ -126,10 +129,15 @@ export class DevicesController {
     let payload: any = body;
     if (body && typeof body === 'object') {
       if ('payload' in body) {
-        const inner = (body as any).payload;
-        payload = inner && typeof inner === 'object' && typeof inner.command === 'string' ? inner.command : inner;
-      } else if ('command' in body && typeof (body as any).command === 'string') {
-        payload = (body as any).command;
+        const inner = body.payload;
+        payload =
+          inner &&
+          typeof inner === 'object' &&
+          typeof inner.command === 'string'
+            ? inner.command
+            : inner;
+      } else if ('command' in body && typeof body.command === 'string') {
+        payload = body.command;
       }
     }
 
